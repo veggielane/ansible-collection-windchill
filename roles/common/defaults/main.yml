@@ -1,0 +1,59 @@
+---
+# Defaults shared by every windchill_* role. "defaults" have the LOWEST
+# precedence of all variables, so anything in inventories/*/group_vars wins.
+# Values here are sensible fallbacks plus documentation of what exists.
+
+# WT_HOME (folder containing bin\windchill.exe). Real value: group_vars.
+windchill_home: 'D:\ptc\Windchill\Windchill'
+windchill_bin: "{{ windchill_home }}\\bin\\windchill.exe"
+
+# Site administrator used by the load utilities. The password has NO default
+# on purpose: it must come from the vault (lesson 06).
+windchill_admin_user: wcadmin
+
+# Working folder on the Windchill server (staging\, applied\, logs\ inside).
+windchill_staging_dir: 'C:\ansible\windchill'
+
+# Container used when a load does not name its own.
+windchill_default_container_path: '/wt.inf.container.OrgContainer=Demo Organization'
+
+# Optional Windows service that must be running before a load. Empty = skip.
+windchill_service_name: ''
+
+# ---------------------------------------------------------------------------
+# LoadFromFile behaviour (used by tasks/load_file.yml)
+# ---------------------------------------------------------------------------
+
+# Seconds one LoadFromFile run may take before Ansible gives up. Protects
+# against a load that silently hangs (e.g. waiting for a login dialog).
+windchill_load_timeout: 1800
+
+# Extra switches appended to every LoadFromFile call, for example
+#   windchill_load_extra_args: ['-UNATTENDED', '-NOSERVERSTOP']
+windchill_load_extra_args: []
+
+# The arguments after the class name. Evaluated at run time, when the calling
+# role has set windchill_load_file / windchill_load_container_path.
+# The password is read from an environment variable set on the task, so
+# special characters in it cannot break the command line.
+# PTC's docs note that on Windows an argument containing spaces may need
+# \"...\" quoting for the launcher: if a load into "Demo Organization" fails
+# with a container-not-found error, that is the line to adjust.
+windchill_load_args: >-
+  -d "{{ windchill_load_file }}"
+  -u "{{ windchill_admin_user }}"
+  -p "$env:WINDCHILL_ADMIN_PASSWORD"
+  {% if windchill_load_container_path | default('') | length > 0 %}-CONT_PATH "{{ windchill_load_container_path }}"{% endif %}
+  {{ windchill_load_extra_args | join(' ') }}
+
+# Where the copy of the last successfully loaded version of a file is kept.
+windchill_load_applied_file: "{{ windchill_staging_dir }}\\applied\\{{ windchill_load_label }}.xml"
+
+# LoadFromFile does not reliably return a non-zero exit code on failure, so
+# the output is scanned too. Case-insensitive regular expressions; any match
+# fails the task. Tune after your first real run (lesson 07).
+windchill_load_failure_patterns:
+  - 'exception'
+  - 'load failed'
+  - 'failed to load'
+  - '\berror\b'

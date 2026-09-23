@@ -1,0 +1,37 @@
+---
+# Entry point of the role. Ansible runs this once per host.
+# acme.windchill.common has already run at this point (meta/main.yml).
+
+- name: Check that windchill_oir_rules is a list of well-formed rules
+  ansible.builtin.assert:
+    that:
+      - windchill_oir_rules | type_debug == 'list'
+      # every rule has a name ...
+      - windchill_oir_rules | rejectattr('name', 'defined') | list | length == 0
+      # ... and is either a ready-made load_file, or has a type + content/content_file
+      - >-
+        windchill_oir_rules | selectattr('load_file', 'undefined')
+        | rejectattr('type', 'defined') | list | length == 0
+      - >-
+        windchill_oir_rules | selectattr('load_file', 'undefined')
+        | rejectattr('content_file', 'defined') | rejectattr('content', 'defined')
+        | list | length == 0
+    fail_msg: >-
+      Every entry in windchill_oir_rules needs a 'name' and either 'load_file'
+      or 'type' + ('content_file' or 'content'). See roles/oir/README.md.
+    quiet: true
+
+- name: Say so when there is nothing to load
+  ansible.builtin.debug:
+    msg: "windchill_oir_rules is empty - define rules in inventory/group_vars/windchill/oir.yml"
+  when: windchill_oir_rules | length == 0
+
+# include_tasks + loop = run a whole task file once per rule.
+# loop_var renames `item` to something meaningful (and role-prefixed, which
+# ansible-lint insists on inside roles).
+- name: Load each object initialization rule
+  ansible.builtin.include_tasks: load_rule.yml
+  loop: "{{ windchill_oir_rules }}"
+  loop_control:
+    loop_var: windchill_oir_rule
+    label: "{{ windchill_oir_rule.name }}"

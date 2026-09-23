@@ -1,0 +1,16 @@
+---
+# ansible-lint settings. "production" is the strictest built-in profile and
+# is what CI runs.
+profile: production
+
+exclude_paths:
+  - .git/
+  - dist/
+
+skip_list:
+  # The rule wants every variable a role defines to start with the role's
+  # name (common_..., oir_...). This collection deliberately uses one shared
+  # namespace, windchill_, for what `common` provides (windchill_home,
+  # windchill_load_*) and windchill_<role>_ for role-specific variables
+  # (windchill_oir_*), so playbooks and inventories read naturally.
+  - var-naming[no-role-prefix]

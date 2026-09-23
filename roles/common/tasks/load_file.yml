@@ -1,0 +1,111 @@
+---
+# Generic "load this file with LoadFromFile, but only if it changed" step.
+# Every windchill_* role that loads files reuses it, like this:
+#
+#   - name: Load the staged file
+#     ansible.builtin.include_role:
+#       name: acme.windchill.common
+#       tasks_from: load_file
+#     vars:
+#       windchill_load_file: 'C:\ansible\windchill\staging\oir_ACME.xml'  # already on the server
+#       windchill_load_label: oir_ACME                                    # names the applied copy and the log
+#       windchill_load_container_path: /wt.inf.container.OrgContainer=ACME   # optional
+#       windchill_load_force: false                                       # optional
+#
+# Steps:  compare with applied\<label>.xml  ->  run LoadFromFile  ->  save log
+#         ->  fail on bad output  ->  copy staged file to applied\
+
+- name: Check the loader was given a file and a label
+  ansible.builtin.assert:
+    that:
+      - windchill_load_file is defined
+      - windchill_load_label is defined
+    fail_msg: "load_file.yml needs windchill_load_file and windchill_load_label (see the comment at the top of the file)"
+    quiet: true
+
+# --- Has it changed since the last successful load? ------------------------
+
+- name: Checksum the staged and last-applied copies of {{ windchill_load_label }}
+  ansible.windows.win_stat:
+    path: "{{ item }}"
+    get_checksum: true
+  loop:
+    - "{{ windchill_load_file }}"
+    - "{{ windchill_load_applied_file }}"
+  register: windchill_common_stat
+
+- name: Decide whether LoadFromFile must run for {{ windchill_load_label }}
+  ansible.builtin.set_fact:
+    windchill_common_needs_load: >-
+      {{ (windchill_load_force | default(false) | bool)
+         or (not windchill_common_stat.results[1].stat.exists)
+         or ((windchill_common_stat.results[0].stat.checksum | default(''))
+             != (windchill_common_stat.results[1].stat.checksum | default(''))) }}
+
+- name: Report that nothing changed for {{ windchill_load_label }}
+  ansible.builtin.debug:
+    msg: "Already applied: the staged file matches the applied copy. Force a reload with windchill_load_force=true."
+  when: not (windchill_common_needs_load | bool)
+
+# --- Load it ---------------------------------------------------------------
+
+# win_shell runs PowerShell on the server. `&` calls the launcher (works for
+# .exe and for the lab's .cmd). `exit $LASTEXITCODE` passes its exit code back.
+# environment: the password reaches the command as $env:WINDCHILL_ADMIN_PASSWORD.
+# no_log:      keeps the password out of Ansible's output and logs.
+# async/poll:  give up after windchill_load_timeout seconds instead of hanging.
+- name: Run LoadFromFile for {{ windchill_load_label }}
+  ansible.windows.win_shell: |
+    & "{{ windchill_bin }}" wt.load.LoadFromFile {{ windchill_load_args }}
+    exit $LASTEXITCODE
+  args:
+    chdir: "{{ windchill_home }}"
+  environment:
+    WINDCHILL_ADMIN_PASSWORD: "{{ windchill_admin_password }}"
+  register: windchill_common_load
+  when: windchill_common_needs_load | bool
+  no_log: true
+  async: "{{ windchill_load_timeout }}"
+  poll: 10
+  changed_when: true
+
+# --- Check the outcome -----------------------------------------------------
+
+- name: Combine stdout and stderr of LoadFromFile for {{ windchill_load_label }}
+  ansible.builtin.set_fact:
+    windchill_common_load_output: '{{ (windchill_common_load.stdout | default("")) ~ "\n" ~ (windchill_common_load.stderr | default("")) }}'
+  when: windchill_common_load is not skipped
+
+- name: Save the LoadFromFile output on the server for {{ windchill_load_label }}
+  ansible.windows.win_copy:
+    content: "{{ windchill_common_load_output }}"
+    dest: "{{ windchill_staging_dir }}\\logs\\{{ windchill_load_label }}_{{ '%Y%m%d-%H%M%S' | strftime }}.log"
+  when: windchill_common_load is not skipped
+
+- name: Show what LoadFromFile said for {{ windchill_load_label }}
+  ansible.builtin.debug:
+    msg: "{{ windchill_common_load_output.splitlines() }}"
+  when: windchill_common_load is not skipped
+
+- name: Fail if LoadFromFile reported a problem for {{ windchill_load_label }}
+  ansible.builtin.assert:
+    that:
+      - windchill_common_load.rc == 0
+      - windchill_common_load_output is not regex(item, ignorecase=True)
+    fail_msg: >-
+      LoadFromFile exit code {{ windchill_common_load.rc }} / output matched the
+      failure pattern '{{ item }}'. Read the output above (also saved under
+      {{ windchill_staging_dir }}\logs). The applied copy was NOT updated, so the
+      next run retries this file.
+    quiet: true
+  loop: "{{ windchill_load_failure_patterns }}"
+  when: windchill_common_load is not skipped
+
+# --- Remember what is now in Windchill -------------------------------------
+
+- name: Record this version as applied for {{ windchill_load_label }}
+  ansible.windows.win_copy:
+    src: "{{ windchill_load_file }}"
+    dest: "{{ windchill_load_applied_file }}"
+    remote_src: true
+  when: windchill_common_load is not skipped

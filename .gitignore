@@ -1,0 +1,14 @@
+# Built artifacts (CI builds them; never commit)
+dist/
+*.tar.gz
+
+# Ansible runtime leftovers
+.ansible/
+tests/output/
+*.retry
+
+# Editor / OS noise
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

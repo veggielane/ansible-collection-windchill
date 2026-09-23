@@ -1,0 +1,15 @@
+---
+# Defaults for the oir role. Override in inventory group_vars
+# (inventory/group_vars/windchill/oir.yml), never by editing this file.
+
+# The rules to load. Each entry is a dictionary; README.md lists every key.
+windchill_oir_rules: []
+
+# Re-run LoadFromFile even when the rendered file is identical to the last
+# applied one:   ansible-playbook playbooks/windchill_oir.yml -e windchill_oir_force=true
+windchill_oir_force: false
+
+# DTD named in the generated load file. LoadFromFile validates against it, so
+# it must exist in <windchill_home>\loadXMLFiles\ (pick the newest
+# standardX*.dtd you find there).
+windchill_oir_load_dtd: standardX26.dtd

@@ -1,0 +1,31 @@
+{#-
+  Load file for ONE object initialization rule, in the csv-XML format read by
+      windchill wt.load.LoadFromFile -d <this file> ...
+
+  The element names below (csvTypeBasedRule and its children) are the ones
+  used by Windchill's rule loader. Confirm them once against YOUR Windchill
+  version before the first real load: README.md of the collection,
+  section "Confirm the load-file format". Adjust here if they differ.
+-#}
+{%- set rule = windchill_oir_rule -%}
+{%- if rule.content is defined -%}
+{%-   set raw_content = rule.content -%}
+{%- else -%}
+{%-   set raw_content = lookup('ansible.builtin.file', config_dir ~ '/' ~ rule.content_file) -%}
+{%- endif -%}
+{#- The rule body is embedded as text (CDATA). An XML declaration is only
+    legal at the very start of a document, so strip one if the content file
+    (e.g. an export from the OIR Administrator) begins with it. -#}
+{%- set content = raw_content | regex_replace('^\\s*<\\?xml[^>]*\\?>', '') | trim -%}
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE NmLoader SYSTEM "{{ windchill_oir_load_dtd }}">
+<NmLoader>
+  <csvTypeBasedRule handler="wt.rule.LoadRule.createTypeBasedRule">
+    <csvname>{{ rule.name }}</csvname>
+    <csvtype>{{ rule.type }}</csvtype>
+    <csvcontainerPath>{{ windchill_oir_container_path }}</csvcontainerPath>
+    <csvruleType>{{ rule.rule_type | default('INIT') }}</csvruleType>
+    <csvenabled>{{ rule.enabled | default(true) | bool | ternary('true', 'false') }}</csvenabled>
+    <csvcontent><![CDATA[{{ content }}]]></csvcontent>
+  </csvTypeBasedRule>
+</NmLoader>

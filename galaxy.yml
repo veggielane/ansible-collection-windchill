@@ -1,0 +1,42 @@
+---
+# Collection manifest. `ansible-galaxy collection build` turns this repo into
+# acme-windchill-<version>.tar.gz, which CI publishes to Artifactory.
+
+# PLACEHOLDER namespace. Lowercase letters, digits and underscores only.
+# Rename it once (README: "Renaming the namespace"); it is part of every
+# role's fully qualified name (acme.windchill.oir).
+namespace: acme
+name: windchill
+
+# Bump on every release (semantic versioning). CI refuses to publish a tag
+# that does not match this value.
+version: 1.0.0
+
+readme: README.md
+authors:
+  - PLM team <plm@example.com>
+description: Configuration roles for PTC Windchill servers on Windows (object initialization rules, shared LoadFromFile loader)
+license:
+  - MIT
+tags:
+  - windchill
+  - windows
+  - plm
+
+# Collections the roles use. Installed automatically alongside this one.
+dependencies:
+  ansible.windows: ">=2.0.0"
+  community.windows: ">=2.0.0"
+
+repository: https://github.com/veggielane/ansible-collection-windchill
+documentation: https://github.com/veggielane/ansible-collection-windchill/blob/main/README.md
+homepage: https://github.com/veggielane/ansible-collection-windchill
+issues: https://github.com/veggielane/ansible-collection-windchill/issues
+
+# Not shipped inside the built artifact.
+build_ignore:
+  - .gitlab-ci.yml
+  - .ansible-lint
+  - .gitignore
+  - dist
+  - "*.tar.gz"

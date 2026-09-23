@@ -1,0 +1,14 @@
+---
+galaxy_info:
+  author: windchill-ansible
+  description: Load Windchill object initialization rules with LoadFromFile
+  license: MIT
+  min_ansible_version: "2.17"
+  platforms:
+    - name: Windows
+      versions:
+        - all
+
+# Roles listed here run BEFORE this role's tasks (lesson 05).
+dependencies:
+  - role: acme.windchill.common

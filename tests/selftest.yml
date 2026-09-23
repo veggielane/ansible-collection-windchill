@@ -1,0 +1,89 @@
+---
+# Self-test of the shared loader's trickier expressions, on the control node
+# only. No Windows host, no Windchill, runs in seconds: good for CI and a
+# worked example of checking Jinja logic with assert.
+#   ansible-playbook tests/selftest.yml
+- name: Self-test of the shared loader logic (control node only)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    # Inputs a calling role would pass to common/tasks/load_file.yml
+    windchill_load_file: 'C:\ansible\windchill\staging\oir_TEST.xml'
+    windchill_load_label: oir_TEST
+    windchill_load_container_path: '/wt.inf.container.OrgContainer=Demo Organization'
+    windchill_admin_password: not-used-here
+
+  tasks:
+    - name: Load the shared role's defaults (the role itself needs a Windows host)
+      ansible.builtin.include_vars:
+        file: ../roles/common/defaults/main.yml
+
+    - name: Show the LoadFromFile argument line as it would be rendered
+      ansible.builtin.debug:
+        msg: "{{ windchill_load_args }}"
+
+    # Gotcha: inside a Jinja string literal a backslash starts an escape
+    # sequence ('C:\ansible' contains \a = the bell character), so build the
+    # expected strings from the variables instead of typing Windows paths.
+    - name: The argument line carries file, user, password variable and container
+      ansible.builtin.assert:
+        that:
+          - >-
+            ('-d "' ~ windchill_load_file ~ '"') in windchill_load_args
+          - >-
+            '-u "wcadmin"' in windchill_load_args
+          - >-
+            '-p "$env:WINDCHILL_ADMIN_PASSWORD"' in windchill_load_args
+          - >-
+            ('-CONT_PATH "' ~ windchill_load_container_path ~ '"') in windchill_load_args
+          - >-
+            windchill_load_applied_file == windchill_staging_dir ~ '\\applied\\' ~ windchill_load_label ~ '.xml'
+        quiet: true
+
+    # Precedence gotcha: values from include_vars outrank task-level vars:,
+    # so to change an input loaded from the defaults file we use set_fact,
+    # which outranks include_vars.
+    - name: Change the inputs at run time
+      ansible.builtin.set_fact:
+        windchill_load_container_path: ''
+        windchill_load_extra_args: ['-UNATTENDED', '-NOSERVERSTOP']
+
+    - name: Without a container path there is no -CONT_PATH, and extra args are appended
+      ansible.builtin.assert:
+        that:
+          - "'CONT_PATH' not in windchill_load_args"
+          - "'-UNATTENDED -NOSERVERSTOP' in windchill_load_args"
+        quiet: true
+
+    - name: A successful load's output matches none of the failure patterns
+      ansible.builtin.assert:
+        that: lab_success_output is not regex(item, ignorecase=True)
+        fail_msg: "pattern '{{ item }}' would flag a successful load"
+        quiet: true
+      loop: "{{ windchill_load_failure_patterns }}"
+      vars:
+        lab_success_output: |
+          Fake Windchill 13.0 (lab)  WT_HOME=C:\FakeWindchill\Windchill
+          Created TypeBasedRule 'LAB_WTPart' (type=WCTYPE|wt.part.WTPart, ruleType=INIT, enabled=true) in /wt.inf.container.OrgContainer=Demo Organization
+          Load completed: 1 rule(s) processed.
+
+    - name: Collect the patterns that match typical failure output
+      ansible.builtin.set_fact:
+        lab_matched: "{{ (lab_matched | default([])) + ([item] if lab_failure_output is regex(item, ignorecase=True) else []) }}"
+      loop: "{{ windchill_load_failure_patterns }}"
+      vars:
+        lab_failure_output: |
+          wt.load.LoadFromFile: file=C:\x.xml user=wcadmin
+          wt.util.WTException: Authentication failed for user 'wcadmin'
+
+    - name: At least one failure pattern catches it
+      ansible.builtin.assert:
+        that: lab_matched | length > 0
+        fail_msg: "no pattern in windchill_load_failure_patterns matched an authentication failure"
+        quiet: true
+
+    - name: All good
+      ansible.builtin.debug:
+        msg: "Loader logic OK. Patterns that caught the sample failure: {{ lab_matched | join(', ') }}"

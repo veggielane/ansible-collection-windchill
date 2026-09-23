@@ -1,0 +1,51 @@
+---
+# Runs before every windchill_* role (they list this role under
+# meta/main.yml -> dependencies). Ansible runs a dependency only once per
+# play, so ten configuration roles still mean one set of checks.
+
+- name: Check the variables every Windchill role needs
+  ansible.builtin.assert:
+    that:
+      - windchill_home | length > 0
+      - windchill_admin_user | length > 0
+      - windchill_admin_password is defined
+      - windchill_staging_dir | length > 0
+    fail_msg: >-
+      Set windchill_home, windchill_admin_user, windchill_admin_password and
+      windchill_staging_dir (inventory/group_vars/windchill/vars.yml + vault.yml).
+    quiet: true                  # only talk when something is wrong
+
+- name: Look for the Windchill launcher
+  ansible.windows.win_stat:
+    path: "{{ windchill_bin }}"
+  register: windchill_common_bin
+
+- name: Fail early if Windchill is not where windchill_home says
+  ansible.builtin.assert:
+    that: windchill_common_bin.stat.exists
+    fail_msg: "{{ windchill_bin }} does not exist. Fix windchill_home in group_vars."
+    quiet: true
+
+- name: Ensure the Ansible working folders exist on the server
+  ansible.windows.win_file:
+    path: "{{ windchill_staging_dir }}\\{{ item }}"
+    state: directory
+  loop:
+    - staging      # freshly rendered load files
+    - applied      # copy of the last successfully loaded version of each file
+    - logs         # LoadFromFile output, one file per run
+
+- name: Query the Windchill service (only when windchill_service_name is set)
+  ansible.windows.win_service_info:
+    name: "{{ windchill_service_name }}"
+  register: windchill_common_service
+  when: windchill_service_name | length > 0
+
+- name: Fail if the Windchill service is not running
+  ansible.builtin.assert:
+    that:
+      - windchill_common_service.exists
+      - windchill_common_service.services[0].state == 'started'
+    fail_msg: "Service {{ windchill_service_name }} is not running; LoadFromFile needs a live method server."
+    quiet: true
+  when: windchill_service_name | length > 0
