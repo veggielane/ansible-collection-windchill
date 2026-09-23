@@ -1,0 +1,13 @@
+---
+# ONE entry of windchill_types_files (in windchill_types_entry): work out its
+# load files, then load each one through the shared loader, in order.
+
+- name: Resolve the load files of {{ windchill_types_entry.name }}
+  ansible.builtin.include_tasks: resolve_entry.yml
+
+- name: Load each file of {{ windchill_types_entry.name }}
+  ansible.builtin.include_tasks: load_item.yml
+  loop: "{{ windchill_types_entry_files }}"
+  loop_control:
+    loop_var: windchill_types_file
+    label: "{{ windchill_types_file | basename }}"

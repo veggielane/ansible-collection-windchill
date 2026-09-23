@@ -1,0 +1,79 @@
+---
+# Checks the file-ordering logic of the types role on the control node.
+# A folder whose files sort WRONG alphabetically must come out in
+# windchill_types_file_order (enumerations, type, attributes, layouts);
+# explicit lists and single files must be taken as given.
+#   ansible-playbook tests/types_order.yml
+- name: Types role - load file ordering
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    test_dir: "{{ playbook_dir }}/output/types_order"
+    config_dir: "{{ test_dir }}"
+    windchill_types_file_order: [enum, type, attr, layout]
+
+  tasks:
+    - name: Create a type folder
+      ansible.builtin.file:
+        path: "{{ test_dir }}/acme_part"
+        state: directory
+        mode: "0755"
+
+    - name: Write files whose alphabetical order is deliberately unhelpful
+      ansible.builtin.copy:
+        dest: "{{ test_dir }}/acme_part/{{ item }}"
+        content: "<NmLoader/>"
+        mode: "0644"
+      loop:
+        - AcmePart_Attributes.xml
+        - AcmePart_Layouts.xml
+        - AcmePart_TypeDefinition.xml
+        - AcmePart_Enumerations.xml
+        - Zzz_notes.xml
+
+    - name: Resolve a load_dir entry
+      ansible.builtin.include_tasks: ../roles/types/tasks/resolve_entry.yml
+      vars:
+        windchill_types_entry:
+          name: acme_part
+          load_dir: acme_part
+
+    - name: A folder comes out as enumerations, type, attributes, layouts, then the rest
+      ansible.builtin.assert:
+        that:
+          - >-
+            windchill_types_entry_files | map('basename') | list ==
+            ['AcmePart_Enumerations.xml', 'AcmePart_TypeDefinition.xml',
+             'AcmePart_Attributes.xml', 'AcmePart_Layouts.xml', 'Zzz_notes.xml']
+          - windchill_types_entry_files[0] == test_dir ~ '/acme_part/AcmePart_Enumerations.xml'
+        quiet: true
+
+    - name: Resolve an explicit list
+      ansible.builtin.include_tasks: ../roles/types/tasks/resolve_entry.yml
+      vars:
+        windchill_types_entry:
+          name: explicit
+          files: [b.xml, a.xml]
+
+    - name: An explicit list is kept in the given order
+      ansible.builtin.assert:
+        that: windchill_types_entry_files | map('basename') | list == ['b.xml', 'a.xml']
+        quiet: true
+
+    - name: Resolve a single file
+      ansible.builtin.include_tasks: ../roles/types/tasks/resolve_entry.yml
+      vars:
+        windchill_types_entry:
+          name: single
+          load_file: only.xml
+
+    - name: A single file is a one-element list
+      ansible.builtin.assert:
+        that: windchill_types_entry_files == [test_dir ~ '/only.xml']
+        quiet: true
+
+    - name: All good
+      ansible.builtin.debug:
+        msg: "types ordering OK"

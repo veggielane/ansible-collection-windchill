@@ -1,0 +1,57 @@
+---
+# Works out the ORDERED list of load files for one entry (windchill_types_entry).
+# Runs on the control node only (no Windows module involved), which is why
+# tests/types_order.yml can exercise it without a server.
+# Result: windchill_types_entry_files, absolute paths on the control node.
+
+# --- explicit list: taken as given -------------------------------------------
+- name: Take the explicit file list of {{ windchill_types_entry.name }}
+  ansible.builtin.set_fact:
+    windchill_types_entry_files: "{{ windchill_types_entry.files | map('regex_replace', '^', config_dir ~ '/') | list }}"
+  when: windchill_types_entry.files is defined
+
+# --- single file ------------------------------------------------------------
+- name: Take the single file of {{ windchill_types_entry.name }}
+  ansible.builtin.set_fact:
+    windchill_types_entry_files: ["{{ config_dir }}/{{ windchill_types_entry.load_file }}"]
+  when:
+    - windchill_types_entry.files is not defined
+    - windchill_types_entry.load_file is defined
+
+# --- folder: every *.xml, ordered by windchill_types_file_order --------------
+- name: List the folder of {{ windchill_types_entry.name }}
+  ansible.builtin.set_fact:
+    windchill_types_dir: "{{ config_dir }}/{{ windchill_types_entry.load_dir }}"
+    windchill_types_found: >-
+      {{ lookup('ansible.builtin.fileglob', config_dir ~ '/' ~ windchill_types_entry.load_dir ~ '/*.xml', wantlist=True)
+         | map('basename') | sort }}
+    windchill_types_ordered: []
+  when: windchill_types_entry.load_dir is defined
+
+# One pattern at a time: files matching it (and not yet placed) are appended.
+# set_fact inside a loop sees the value set by the previous iteration.
+- name: Place the files matching each ordering pattern for {{ windchill_types_entry.name }}
+  ansible.builtin.set_fact:
+    windchill_types_ordered: >-
+      {{ windchill_types_ordered
+         + (windchill_types_found | select('regex', item, ignorecase=True) | reject('in', windchill_types_ordered) | list) }}
+  loop: "{{ windchill_types_file_order }}"
+  when: windchill_types_entry.load_dir is defined
+
+- name: Append the files matching no pattern, alphabetically, for {{ windchill_types_entry.name }}
+  ansible.builtin.set_fact:
+    windchill_types_entry_files: >-
+      {{ (windchill_types_ordered + (windchill_types_found | reject('in', windchill_types_ordered) | list))
+         | map('regex_replace', '^', windchill_types_dir ~ '/') | list }}
+  when: windchill_types_entry.load_dir is defined
+
+# --- sanity -----------------------------------------------------------------
+- name: Refuse an entry with nothing to load for {{ windchill_types_entry.name }}
+  ansible.builtin.assert:
+    that: windchill_types_entry_files | length > 0
+    fail_msg: "No load files found for entry '{{ windchill_types_entry.name }}': check its load_dir / files / load_file under {{ config_dir }}"
+    quiet: true
+
+- name: Show the load order for {{ windchill_types_entry.name }}
+  ansible.builtin.debug:
+    msg: "{{ windchill_types_entry_files | map('basename') | list }}"

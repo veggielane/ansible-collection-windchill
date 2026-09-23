@@ -1,16 +1,32 @@
 ---
-# Defaults for the types role: soft types, their attributes, layouts and
+# Defaults for the types role: soft types with their attributes, layouts and
 # global enumerations, as exported from Type and Attribute Management.
 # Override in the configuration repo (inventory/group_vars/windchill/types.yml).
 
-# The load files to import, in order. Each is a complete LoadFromFile
-# document produced by Windchill's type export (see README.md), kept under
-# the configuration repo's config/ folder and copied to the server as-is.
+# What to import, in order. A Windchill type export produces UP TO FOUR load
+# files per type (type definition, attributes, layouts, enumerations), so an
+# entry normally points at a FOLDER holding one type's files:
 windchill_types_files: []
-#  - name: acme_part_types                  # label: names the applied copy and the log
-#    load_file: types/acme_part_types.xml   # relative to config_dir
-#    container_path: ''                     # optional. Empty = no -CONT_PATH = site level,
-#                                           # which is where type definitions live
+#  - name: acme_part                     # label: names the applied copies and logs
+#    load_dir: types/acme_part           # folder under config_dir: every *.xml in it,
+#                                        # ordered by windchill_types_file_order
+#  - name: acme_document
+#    files:                              # ...or an explicit list, loaded in this order
+#      - types/acme_document/AcmeDocument_TypeDefinition.xml
+#      - types/acme_document/AcmeDocument_Attributes.xml
+#  - name: site_enumerations
+#    load_file: types/enumerations.xml   # ...or a single file
+#    container_path: ''                  # optional on any entry. Empty (default) = no
+#                                        # -CONT_PATH = site level, where types live
+
+# How the files of a load_dir are ordered: the first regular expression that
+# matches a file name (case-insensitive) wins; files matching none go last,
+# alphabetically. Adjust the words to the naming of your Windchill's export.
+windchill_types_file_order:
+  - enum        # global enumerations first: attributes may refer to them
+  - type        # the type definition itself
+  - attr        # its attributes
+  - layout      # layouts refer to attributes, so last
 
 # Re-import every file even when unchanged:  -e windchill_types_force=true
 windchill_types_force: false

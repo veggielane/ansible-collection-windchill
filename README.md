@@ -16,7 +16,7 @@ server, or an actual Windchill rule. All of that arrives as variables.
 | Role | Purpose |
 |---|---|
 | `acme.windchill.common` | Pre-flight checks, working folders, and `tasks/load_file.yml`: the shared "run `wt.load.LoadFromFile` only if the staged file changed" step every other role reuses. |
-| `acme.windchill.types` | Soft types, attributes, layouts and global enumerations: copies load files exported from Type and Attribute Management and hands them to the loader. Site level. |
+| `acme.windchill.types` | Soft types, attributes, layouts and global enumerations: takes one folder per type holding the up-to-four load files of a Type and Attribute Management export, loads them in dependency order through the loader. Site level. |
 | `acme.windchill.oir` | Object initialization rules: renders each rule into a load file (or copies a complete one) and hands it to the loader. Depends on `types`. |
 
 Order is enforced by role dependencies: `oir` -> `types` -> `common`. Running
@@ -31,7 +31,7 @@ Each role has its own README with the variable table.
 # requirements.yml in the configuration repo
 collections:
   - name: acme.windchill
-    version: "1.1.0"
+    version: "1.2.0"
 ```
 
 ```yaml
@@ -53,6 +53,7 @@ Run the checks CI runs:
 ```bash
 ansible-lint --profile production
 ansible-playbook tests/selftest.yml                       # loader logic, no Windows host needed
+ansible-playbook tests/types_order.yml                    # types file ordering, likewise
 ansible-galaxy collection build --output-path dist
 export ANSIBLE_COLLECTIONS_PATH=/tmp/collections     # an empty path, so dependencies are installed too
 ansible-galaxy collection install dist/*.tar.gz

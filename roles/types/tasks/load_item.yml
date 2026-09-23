@@ -1,32 +1,32 @@
 ---
-# Stages ONE exported type load file and hands it to the shared loader.
-# main.yml includes this once per entry of windchill_types_files; the entry
-# is in windchill_types_item.
+# Stages ONE load file (windchill_types_file: a path on the control node)
+# belonging to entry windchill_types_entry, and hands it to the shared loader.
 #
-#   copy             ->  <staging_dir>\staging\types_<name>.xml   (this file)
-#   load if changed  ->  roles/common/tasks/load_file.yml         (shared)
+#   copy             ->  <staging_dir>\staging\types_<entry>_<file>.xml   (this file)
+#   load if changed  ->  roles/common/tasks/load_file.yml                 (shared)
 
-- name: Work out safe names for type file {{ windchill_types_item.name }}
+- name: Work out the label for {{ windchill_types_file | basename }}
   ansible.builtin.set_fact:
-    windchill_types_safe_name: "{{ windchill_types_item.name | regex_replace('[^A-Za-z0-9_.-]', '_') }}"
+    windchill_types_label: >-
+      types_{{ windchill_types_entry.name | regex_replace('[^A-Za-z0-9_.-]', '_') }}_{{
+      windchill_types_file | basename | splitext | first | regex_replace('[^A-Za-z0-9_.-]', '_') }}
 
-- name: Work out the staging path for type file {{ windchill_types_item.name }}
+- name: Work out the staging path for {{ windchill_types_file | basename }}
   ansible.builtin.set_fact:
-    windchill_types_staging_file: "{{ windchill_staging_dir }}\\staging\\types_{{ windchill_types_safe_name }}.xml"
+    windchill_types_staging_file: "{{ windchill_staging_dir }}\\staging\\{{ windchill_types_label }}.xml"
 
-# The export is already a complete LoadFromFile document, so there is
-# nothing to render: copy it as-is.
-- name: Copy the exported load file for type file {{ windchill_types_item.name }}
+# The export is already a complete LoadFromFile document: copy it as-is.
+- name: Copy the exported load file {{ windchill_types_file | basename }}
   ansible.windows.win_copy:
-    src: "{{ config_dir }}/{{ windchill_types_item.load_file }}"
+    src: "{{ windchill_types_file }}"
     dest: "{{ windchill_types_staging_file }}"
 
-- name: Load the staged file for type file {{ windchill_types_item.name }}
+- name: Load the staged file {{ windchill_types_file | basename }}
   ansible.builtin.include_role:
     name: acme.windchill.common
     tasks_from: load_file
   vars:
     windchill_load_file: "{{ windchill_types_staging_file }}"
-    windchill_load_label: "types_{{ windchill_types_safe_name }}"
-    windchill_load_container_path: "{{ windchill_types_item.container_path | default('') }}"
+    windchill_load_label: "{{ windchill_types_label }}"
+    windchill_load_container_path: "{{ windchill_types_entry.container_path | default('') }}"
     windchill_load_force: "{{ windchill_types_force }}"

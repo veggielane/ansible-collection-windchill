@@ -8,20 +8,25 @@
     that:
       - windchill_types_files | type_debug == 'list'
       - windchill_types_files | rejectattr('name', 'defined') | list | length == 0
-      - windchill_types_files | rejectattr('load_file', 'defined') | list | length == 0
+      # each entry says where its files are: a folder, a list, or one file
+      - >-
+        windchill_types_files | rejectattr('load_dir', 'defined')
+        | rejectattr('files', 'defined') | rejectattr('load_file', 'defined')
+        | list | length == 0
     fail_msg: >-
-      Every entry in windchill_types_files needs a 'name' and a 'load_file'
-      (path relative to config_dir). See roles/types/README.md.
+      Every entry in windchill_types_files needs a 'name' and one of
+      'load_dir', 'files' or 'load_file' (paths relative to config_dir).
+      See roles/types/README.md.
     quiet: true
 
 - name: Say so when there is nothing to import
   ansible.builtin.debug:
-    msg: "windchill_types_files is empty - list exported type load files in inventory/group_vars/windchill/types.yml"
+    msg: "windchill_types_files is empty - list exported type folders in inventory/group_vars/windchill/types.yml"
   when: windchill_types_files | length == 0
 
-- name: Import each type load file, in order
-  ansible.builtin.include_tasks: load_item.yml
+- name: Import each type entry, in order
+  ansible.builtin.include_tasks: load_entry.yml
   loop: "{{ windchill_types_files }}"
   loop_control:
-    loop_var: windchill_types_item
-    label: "{{ windchill_types_item.name }}"
+    loop_var: windchill_types_entry
+    label: "{{ windchill_types_entry.name }}"

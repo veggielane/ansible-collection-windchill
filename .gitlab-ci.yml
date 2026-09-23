@@ -47,8 +47,10 @@ lint:
 selftest:
   stage: test
   script:
-    # Exercises the loader's Jinja logic on the runner; needs no Windows host.
+    # Exercise the loader's Jinja logic and the types file ordering on the
+    # runner; neither needs a Windows host.
     - ansible-playbook tests/selftest.yml
+    - ansible-playbook tests/types_order.yml
 
 build:
   stage: test
