@@ -4,6 +4,12 @@ All notable changes to the `acme.windchill` collection. Versions follow
 semantic versioning: patch = fix, minor = new role or new optional variable,
 major = a variable or role renamed or removed.
 
+## 1.5.0 (2026-09-23)
+
+- `properties`: the plan compares the current override's target file as
+  well as its value, so changing an entry's `target` moves the property.
+  New `windchill_properties_force` re-sets every present property.
+
 ## 1.4.0 (2026-09-23)
 
 - New role `properties`: manages Windchill properties as `site.xconf`

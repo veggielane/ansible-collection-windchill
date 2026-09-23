@@ -33,7 +33,7 @@ Each role has its own README with the variable table.
 # requirements.yml in the configuration repo
 collections:
   - name: acme.windchill
-    version: "1.4.0"
+    version: "1.5.0"
 ```
 
 ```yaml

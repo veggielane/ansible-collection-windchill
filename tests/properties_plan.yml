@@ -9,11 +9,13 @@
 
   vars:
     windchill_properties_default_target: codebase/wt.properties
+    windchill_properties_force: false
     windchill_properties_current:
-      wt.mail.from: old@example.com          # differs -> set
-      wt.method.verboseClient: 'false'       # same -> skip
-      wt.obsolete: whatever                  # present but wanted absent -> remove
-      wt.number: '30'                        # same after normalising the YAML number
+      wt.mail.from: {value: old@example.com, target: codebase/wt.properties}      # differs -> set
+      wt.method.verboseClient: {value: 'false', target: codebase/wt.properties}   # same -> skip
+      wt.obsolete: {value: whatever, target: codebase/wt.properties}              # present but wanted absent -> reset
+      wt.number: {value: '30', target: codebase/wt.properties}                    # same after normalising the YAML number
+      wt.moved: {value: same, target: codebase/wt.properties}                     # same value, other file -> set
     windchill_properties:
       - name: wt.mail.from
         value: new@example.com
@@ -23,11 +25,14 @@
         state: absent
       - name: wt.number
         value: 30                             # YAML number -> "30"
+      - name: wt.moved
+        value: same
+        target: codebase/db/db.properties     # only the target changed
       - name: wt.brand.new
         value: hello
         target: codebase/db/db.properties     # no override yet -> set, custom target
       - name: wt.never.there
-        state: absent                         # no override -> nothing to remove
+        state: absent                         # no override -> nothing to reset
 
   tasks:
     - name: Run the role's plan logic
@@ -36,11 +41,25 @@
     - name: Exactly the differing ones are planned, normalised
       ansible.builtin.assert:
         that:
-          - windchill_properties_plan | map(attribute='name') | list == ['wt.mail.from', 'wt.obsolete', 'wt.brand.new']
+          - windchill_properties_plan | map(attribute='name') | list == ['wt.mail.from', 'wt.obsolete', 'wt.moved', 'wt.brand.new']
           - (windchill_properties_plan | selectattr('name', 'eq', 'wt.mail.from') | first).value == 'new@example.com'
           - (windchill_properties_plan | selectattr('name', 'eq', 'wt.mail.from') | first).target == 'codebase/wt.properties'
           - (windchill_properties_plan | selectattr('name', 'eq', 'wt.obsolete') | first).state == 'absent'
+          - (windchill_properties_plan | selectattr('name', 'eq', 'wt.moved') | first).target == 'codebase/db/db.properties'
           - (windchill_properties_plan | selectattr('name', 'eq', 'wt.brand.new') | first).target == 'codebase/db/db.properties'
+        quiet: true
+
+    - name: Run the plan logic again, forced
+      ansible.builtin.include_tasks: ../roles/properties/tasks/plan.yml
+      vars:
+        windchill_properties_force: true
+
+    - name: Forced means every present property, and only the absent one with an override
+      ansible.builtin.assert:
+        that:
+          - >-
+            windchill_properties_plan | map(attribute='name') | list ==
+            ['wt.mail.from', 'wt.method.verboseClient', 'wt.obsolete', 'wt.number', 'wt.moved', 'wt.brand.new']
         quiet: true
 
     - name: All good

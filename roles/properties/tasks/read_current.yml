@@ -1,6 +1,7 @@
 ---
 # Reads the current override of every wanted property from site.xconf into
-# windchill_properties_current (a dict name -> value; missing = no override).
+# windchill_properties_current: a dict  name -> {value, target}
+# (a missing name = no override).
 #
 # site.xconf is XML:  <Property name="wt.x" value="..." targetFile="..."/>
 # It starts with a DOCTYPE that points at xconf.dtd, so it is parsed with
@@ -24,7 +25,9 @@
         $reader.Close()
         foreach ($p in $xconf.SelectNodes('//Property')) {
             $n = $p.GetAttribute('name')
-            if ($names -contains $n) { $current[$n] = $p.GetAttribute('value') }
+            if ($names -contains $n) {
+                $current[$n] = @{ value = $p.GetAttribute('value'); target = $p.GetAttribute('targetFile') }
+            }
         }
     }
     if ($current.Count -eq 0) { '{}' } else { $current | ConvertTo-Json -Compress }

@@ -17,8 +17,14 @@ windchill_properties: []
 #    state: absent                          # remove the override (xconfmanager --remove)
 
 # Property file most properties live in (relative to windchill_home, forward
-# slashes, as xconfmanager expects).
+# slashes, as xconfmanager expects). An entry's own `target` wins. Both the
+# value and the target of the current override are compared, so moving a
+# property to another file is picked up.
 windchill_properties_default_target: codebase/wt.properties
+
+# Set every present property again even when its override already matches:
+#   ansible-playbook playbooks/windchill_properties.yml -e windchill_properties_force=true
+windchill_properties_force: false
 
 # The utility. Windows installs it next to windchill.exe.
 windchill_xconfmanager: "{{ windchill_home }}\\bin\\xconfmanager.exe"

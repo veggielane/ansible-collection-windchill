@@ -9,8 +9,8 @@ loaders: **read the current value, change only what differs, then restart**.
 
 | Step | What |
 |---|---|
-| read | PowerShell parses `site.xconf` and returns the current override of every wanted property |
-| plan | control-node logic decides which ones differ (`tests/properties_plan.yml` checks it) |
+| read | PowerShell parses `site.xconf` and returns the current override (value and target file) of every wanted property |
+| plan | control-node logic decides which ones differ in value or target file (`tests/properties_plan.yml` checks it) |
 | apply | `xconfmanager -s name=value ... -t <target>` once per target file; `xconfmanager --reset name` for `state: absent`; then `xconfmanager -p` |
 | restart | the `windchill properties changed` handler runs `windchill_restart_command` (or just says a restart is needed), flushed at the end of the role so later roles see the new values |
 
@@ -26,6 +26,7 @@ Set in the configuration repo's `inventory/group_vars/windchill/properties.yml`
 |---|---|---|
 | `windchill_properties` | `[]` | The properties to enforce (below). |
 | `windchill_properties_default_target` | `codebase/wt.properties` | Property file used when an entry has no `target`. Set `target` for properties that belong elsewhere (`codebase/db/db.properties`, ...). |
+| `windchill_properties_force` | `false` | Set every present property again even if its override matches. `-e windchill_properties_force=true`. |
 | `windchill_xconfmanager` | `<windchill_home>\bin\xconfmanager.exe` | The utility. |
 | `windchill_site_xconf` | `<windchill_home>\site.xconf` | Where overrides are recorded. |
 | `windchill_restart_command` | `''` | PowerShell that restarts your Windchill. Empty = only report that a restart is needed. |
@@ -51,9 +52,10 @@ quoting just makes the intent obvious.
 
 ## Notes
 
-- Only *overrides* are compared. A property that is not in `site.xconf` yet
-  is set on the first run even if its declared default already has that
-  value; from then on it is stable.
+- Only *overrides* are compared, by value **and** target file. A property
+  that is not in `site.xconf` yet is set on the first run even if its
+  declared default already has that value; from then on it is stable.
+  Changing an entry's `target` re-sets it in the new file.
 - `xconfmanager -d <name>` on the server shows a property's current value
   and where it comes from, handy when checking what the role did.
 - The restart happens inside this role (handlers are flushed at its end),

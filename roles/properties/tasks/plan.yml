@@ -1,7 +1,7 @@
 ---
 # Decides what xconfmanager has to do, comparing the wanted properties with
-# windchill_properties_current. Control-node logic only, so
-# tests/properties_plan.yml can check it with a mocked current state.
+# windchill_properties_current (name -> {value, target}). Control-node logic
+# only, so tests/properties_plan.yml can check it with a mocked current state.
 #
 # Result: windchill_properties_plan, a list of normalised entries
 #   {name, value (string), target, state} that need a change.
@@ -13,6 +13,10 @@
 # One entry at a time, normalised: value as the exact string Windchill
 # should see (YAML booleans become true/false, numbers become digits), the
 # default target filled in, state defaulted to present.
+#
+# A property is planned when it should be present and its override is
+# missing, has another value, or lives in another file (target); when it
+# should be absent and an override exists; or when forced.
 - name: Add each property that differs from its current override
   ansible.builtin.set_fact:
     windchill_properties_plan: "{{ windchill_properties_plan + [windchill_properties_wanted] }}"
@@ -22,12 +26,15 @@
       value: "{{ (item.value | lower) if (item.value is defined and item.value is boolean) else (item.value | default('') | string) }}"
       target: "{{ item.target | default(windchill_properties_default_target) }}"
       state: "{{ item.state | default('present') }}"
+    windchill_properties_now: "{{ windchill_properties_current.get(item.name, {}) }}"
   loop: "{{ windchill_properties }}"
   loop_control:
     label: "{{ item.name }}"
   when: >-
     (windchill_properties_wanted.state == 'present'
-     and (windchill_properties_current[item.name] | default(None)) != windchill_properties_wanted.value)
+     and ((windchill_properties_force | bool)
+          or windchill_properties_now.get('value') != windchill_properties_wanted.value
+          or windchill_properties_now.get('target') != windchill_properties_wanted.target))
     or (windchill_properties_wanted.state == 'absent'
         and item.name in windchill_properties_current)
 
