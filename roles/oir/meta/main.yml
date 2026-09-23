@@ -9,6 +9,9 @@ galaxy_info:
       versions:
         - all
 
-# Roles listed here run BEFORE this role's tasks (lesson 05).
+# Roles listed here run BEFORE this role's tasks, in this order.
+# types comes first because a rule for a soft type cannot be loaded until
+# the type exists.
 dependencies:
   - role: acme.windchill.common
+  - role: acme.windchill.types

@@ -4,6 +4,14 @@ All notable changes to the `acme.windchill` collection. Versions follow
 semantic versioning: patch = fix, minor = new role or new optional variable,
 major = a variable or role renamed or removed.
 
+## 1.1.0 (2026-09-23)
+
+- New role `types`: imports soft types, attributes, layouts and global
+  enumerations from load files exported out of Type and Attribute
+  Management, through the shared loader. Site level by default.
+- `oir` now depends on `types` (after `common`), so type definitions are
+  always imported before the rules that refer to them.
+
 ## 1.0.0 (2026-09-23)
 
 - Initial release.

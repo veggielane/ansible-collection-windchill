@@ -16,7 +16,12 @@ server, or an actual Windchill rule. All of that arrives as variables.
 | Role | Purpose |
 |---|---|
 | `acme.windchill.common` | Pre-flight checks, working folders, and `tasks/load_file.yml`: the shared "run `wt.load.LoadFromFile` only if the staged file changed" step every other role reuses. |
-| `acme.windchill.oir` | Object initialization rules: renders each rule into a load file (or copies a complete one) and hands it to the loader. |
+| `acme.windchill.types` | Soft types, attributes, layouts and global enumerations: copies load files exported from Type and Attribute Management and hands them to the loader. Site level. |
+| `acme.windchill.oir` | Object initialization rules: renders each rule into a load file (or copies a complete one) and hands it to the loader. Depends on `types`. |
+
+Order is enforced by role dependencies: `oir` -> `types` -> `common`. Running
+`oir` alone still imports the types first; nothing that refers to a soft type
+runs before the type exists.
 
 Each role has its own README with the variable table.
 
@@ -26,7 +31,7 @@ Each role has its own README with the variable table.
 # requirements.yml in the configuration repo
 collections:
   - name: acme.windchill
-    version: "1.0.0"
+    version: "1.1.0"
 ```
 
 ```yaml
@@ -38,9 +43,8 @@ collections:
 ```
 
 Variables the roles expect (`windchill_home`, `windchill_admin_user`,
-`windchill_admin_password`, `windchill_staging_dir`, `windchill_oir_rules`,
-...) are documented in `roles/common/defaults/main.yml` and
-`roles/oir/defaults/main.yml`.
+`windchill_admin_password`, `windchill_staging_dir`, `windchill_types_files`,
+`windchill_oir_rules`, ...) are documented in each role's `defaults/main.yml`.
 
 ## Developing
 
@@ -88,7 +92,8 @@ Artifactory variables, lint and test still run using public Galaxy.
 `acme` is a placeholder. To rename it to `yourco`, change:
 
 - `galaxy.yml`: `namespace`
-- `roles/oir/meta/main.yml` and `roles/oir/tasks/load_rule.yml`: `acme.windchill.common`
+- `roles/oir/meta/main.yml`, `roles/oir/tasks/load_rule.yml`, `roles/types/meta/main.yml`,
+  `roles/types/tasks/load_item.yml`: `acme.windchill.common` / `acme.windchill.types`
 - `tests/syntax.yml` and `.gitlab-ci.yml` (the tarball name in `publish`)
 - in the configuration repo: `requirements-windchill.yml`, `docker-compose.yml`
   (the mount path), `playbooks/*.yml`, `playbooks/lab_render_oir.yml`

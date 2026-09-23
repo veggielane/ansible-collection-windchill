@@ -1,0 +1,16 @@
+---
+# Defaults for the types role: soft types, their attributes, layouts and
+# global enumerations, as exported from Type and Attribute Management.
+# Override in the configuration repo (inventory/group_vars/windchill/types.yml).
+
+# The load files to import, in order. Each is a complete LoadFromFile
+# document produced by Windchill's type export (see README.md), kept under
+# the configuration repo's config/ folder and copied to the server as-is.
+windchill_types_files: []
+#  - name: acme_part_types                  # label: names the applied copy and the log
+#    load_file: types/acme_part_types.xml   # relative to config_dir
+#    container_path: ''                     # optional. Empty = no -CONT_PATH = site level,
+#                                           # which is where type definitions live
+
+# Re-import every file even when unchanged:  -e windchill_types_force=true
+windchill_types_force: false
