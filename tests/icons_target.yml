@@ -1,0 +1,40 @@
+---
+# Checks the target-folder logic of the icons role on the control node:
+# with a dest subfolder and without. Expected values are built on the YAML
+# side ("\\" is one backslash there), never inside Jinja string literals.
+#   ansible-playbook tests/icons_target.yml
+- name: Icons role - target folder
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    windchill_icons_dest_root: 'D:\ptc\Windchill\codebase\netmarkets\images'
+    test_expected_sub: "{{ windchill_icons_dest_root }}\\acme"
+
+  tasks:
+    - name: Resolve an entry with a dest subfolder
+      ansible.builtin.include_tasks: ../roles/icons/tasks/resolve_target.yml
+      vars:
+        windchill_icons_entry: {src: icons/acme, dest: acme}
+
+    - name: A dest subfolder is appended with exactly one backslash
+      ansible.builtin.assert:
+        that:
+          - windchill_icons_target == test_expected_sub
+          - windchill_icons_target | length == (windchill_icons_dest_root | length) + 5
+        quiet: true
+
+    - name: Resolve an entry without dest
+      ansible.builtin.include_tasks: ../roles/icons/tasks/resolve_target.yml
+      vars:
+        windchill_icons_entry: {src: icons}
+
+    - name: No dest means the root itself
+      ansible.builtin.assert:
+        that: windchill_icons_target == windchill_icons_dest_root
+        quiet: true
+
+    - name: All good
+      ansible.builtin.debug:
+        msg: "icons target OK"

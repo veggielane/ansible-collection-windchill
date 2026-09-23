@@ -51,6 +51,7 @@ selftest:
     # runner; neither needs a Windows host.
     - ansible-playbook tests/selftest.yml
     - ansible-playbook tests/types_order.yml
+    - ansible-playbook tests/icons_target.yml
 
 build:
   stage: test

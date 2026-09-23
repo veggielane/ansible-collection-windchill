@@ -1,11 +1,12 @@
 ---
 # Used by CI after the built collection has been installed: proves the roles
 # resolve by their fully qualified names, that the dependency chain
-# (oir -> types -> common) is intact, and that every task file parses.
+# (oir -> types -> icons -> common) is intact, and that every task file parses.
 #   ansible-playbook --syntax-check tests/syntax.yml
 - name: Syntax check of the collection's roles
   hosts: localhost
   gather_facts: false
   roles:
+    - acme.windchill.icons
     - acme.windchill.types
     - acme.windchill.oir

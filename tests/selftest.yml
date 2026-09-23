@@ -24,9 +24,9 @@
       ansible.builtin.debug:
         msg: "{{ windchill_load_args }}"
 
-    # Gotcha: inside a Jinja string literal a backslash starts an escape
-    # sequence ('C:\ansible' contains \a = the bell character), so build the
-    # expected strings from the variables instead of typing Windows paths.
+    # Gotcha: backslashes inside Jinja string literals are treated differently
+    # depending on Ansible version and context, so expected values are built
+    # from the variables, or on the YAML side ("\\" is one backslash there).
     - name: The argument line carries file, user, password variable and container
       ansible.builtin.assert:
         that:
@@ -38,9 +38,10 @@
             '-p "$env:WINDCHILL_ADMIN_PASSWORD"' in windchill_load_args
           - >-
             ('-CONT_PATH "' ~ windchill_load_container_path ~ '"') in windchill_load_args
-          - >-
-            windchill_load_applied_file == windchill_staging_dir ~ '\\applied\\' ~ windchill_load_label ~ '.xml'
+          - windchill_load_applied_file == lab_expected_applied
         quiet: true
+      vars:
+        lab_expected_applied: "{{ windchill_staging_dir }}\\applied\\{{ windchill_load_label }}.xml"
 
     # Precedence gotcha: values from include_vars outrank task-level vars:,
     # so to change an input loaded from the defaults file we use set_fact,

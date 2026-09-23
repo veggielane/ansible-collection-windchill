@@ -1,0 +1,16 @@
+---
+# Defaults for the icons role: image files that soft types (and other
+# customisations) refer to, served by Windchill from codebase\netmarkets\images.
+# Override in the configuration repo (inventory/group_vars/windchill/icons.yml).
+
+# Folders to mirror onto the server, in order. Each entry copies the CONTENTS
+# of a folder under config_dir into a subfolder of windchill_icons_dest_root,
+# keeping any sub-structure. Only files that differ are transferred.
+windchill_icons: []
+#  - src: icons                 # config/icons/**  ->  netmarkets\images\**
+#  - src: icons/acme            # config/icons/acme/**  ->  netmarkets\images\acme\**
+#    dest: acme                 # optional subfolder on the server; '' = the root
+
+# Where Windchill serves type icons from. A type's icon property refers to a
+# file here relative to codebase, e.g. netmarkets/images/acme/widget.gif.
+windchill_icons_dest_root: "{{ windchill_home }}\\codebase\\netmarkets\\images"

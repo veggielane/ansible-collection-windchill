@@ -4,6 +4,17 @@ All notable changes to the `acme.windchill` collection. Versions follow
 semantic versioning: patch = fix, minor = new role or new optional variable,
 major = a variable or role renamed or removed.
 
+## 1.3.0 (2026-09-23)
+
+- New role `icons`: mirrors folders of images from the configuration repo
+  into `codebase\netmarkets\images` with `win_copy` (idempotent by
+  checksum, no LoadFromFile).
+- `common`: the loader now joins LoadFromFile's stdout and stderr with a real
+  newline (it was a literal backslash-n).
+- `types` now depends on `icons` (after `common`): a type's icon file is on
+  the server before the type definition that refers to it is imported. The
+  chain is `oir -> types -> icons -> common`.
+
 ## 1.2.0 (2026-09-23)
 
 - `types`: an entry can now be a folder (`load_dir`) holding one type's

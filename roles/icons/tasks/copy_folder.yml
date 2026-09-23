@@ -1,0 +1,18 @@
+---
+# Mirrors ONE folder (windchill_icons_entry) into netmarkets\images.
+# No LoadFromFile here: images are plain files, and win_copy is idempotent
+# by itself (it compares checksums and only transfers what differs).
+
+- name: Work out the target folder for {{ windchill_icons_entry.src }}
+  ansible.builtin.include_tasks: resolve_target.yml
+
+- name: Ensure the target folder exists for {{ windchill_icons_entry.src }}
+  ansible.windows.win_file:
+    path: "{{ windchill_icons_target }}"
+    state: directory
+
+# A src ending in "/" means "the contents of this folder", copied recursively.
+- name: Copy the files of {{ windchill_icons_entry.src }}
+  ansible.windows.win_copy:
+    src: "{{ config_dir }}/{{ windchill_icons_entry.src | regex_replace('/+$', '') }}/"
+    dest: "{{ windchill_icons_target }}"

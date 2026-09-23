@@ -1,0 +1,18 @@
+---
+# Works out the server folder for ONE entry (windchill_icons_entry).
+# Control-node logic only, so tests/icons_target.yml can check it.
+# Result: windchill_icons_target.
+#
+# The backslash is written on the YAML side ("...\\...", which YAML turns
+# into one backslash) rather than inside a Jinja string literal: in Jinja
+# expressions embedded in YAML, backslashes are taken verbatim.
+
+- name: Target is a subfolder of netmarkets/images for {{ windchill_icons_entry.src }}
+  ansible.builtin.set_fact:
+    windchill_icons_target: "{{ windchill_icons_dest_root }}\\{{ windchill_icons_entry.dest }}"
+  when: windchill_icons_entry.dest | default('') | length > 0
+
+- name: Target is netmarkets/images itself for {{ windchill_icons_entry.src }}
+  ansible.builtin.set_fact:
+    windchill_icons_target: "{{ windchill_icons_dest_root }}"
+  when: windchill_icons_entry.dest | default('') | length == 0

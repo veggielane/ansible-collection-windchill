@@ -71,9 +71,12 @@
 
 # --- Check the outcome -----------------------------------------------------
 
+# The newline between the two is written on the YAML side ("\n" in a
+# double-quoted YAML string). Inside a Jinja string literal it would stay a
+# literal backslash-n: Jinja expressions embedded in YAML take those verbatim.
 - name: Combine stdout and stderr of LoadFromFile for {{ windchill_load_label }}
   ansible.builtin.set_fact:
-    windchill_common_load_output: '{{ (windchill_common_load.stdout | default("")) ~ "\n" ~ (windchill_common_load.stderr | default("")) }}'
+    windchill_common_load_output: "{{ windchill_common_load.stdout | default('') }}\n{{ windchill_common_load.stderr | default('') }}"
   when: windchill_common_load is not skipped
 
 - name: Save the LoadFromFile output on the server for {{ windchill_load_label }}

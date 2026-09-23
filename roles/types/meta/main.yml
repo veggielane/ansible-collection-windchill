@@ -9,5 +9,9 @@ galaxy_info:
       versions:
         - all
 
+# Roles listed here run BEFORE this role's tasks, in this order.
+# icons comes first because a type definition refers to its icon file under
+# codebase\netmarkets\images, which must already be there.
 dependencies:
   - role: acme.windchill.common
+  - role: acme.windchill.icons

@@ -1,0 +1,24 @@
+---
+# Entry point of the role. Ansible runs this once per host, after
+# acme.windchill.common (meta/main.yml). The types role depends on this one,
+# so icons are on the server before any type definition that refers to them.
+
+- name: Check that windchill_icons is a list of well-formed entries
+  ansible.builtin.assert:
+    that:
+      - windchill_icons | type_debug == 'list'
+      - windchill_icons | rejectattr('src', 'defined') | list | length == 0
+    fail_msg: "Every entry in windchill_icons needs a 'src' folder (relative to config_dir). See roles/icons/README.md."
+    quiet: true
+
+- name: Say so when there is nothing to copy
+  ansible.builtin.debug:
+    msg: "windchill_icons is empty - list icon folders in inventory/group_vars/windchill/icons.yml"
+  when: windchill_icons | length == 0
+
+- name: Mirror each icon folder onto the server
+  ansible.builtin.include_tasks: copy_folder.yml
+  loop: "{{ windchill_icons }}"
+  loop_control:
+    loop_var: windchill_icons_entry
+    label: "{{ windchill_icons_entry.src }}"

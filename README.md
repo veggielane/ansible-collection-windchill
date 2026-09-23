@@ -16,12 +16,13 @@ server, or an actual Windchill rule. All of that arrives as variables.
 | Role | Purpose |
 |---|---|
 | `acme.windchill.common` | Pre-flight checks, working folders, and `tasks/load_file.yml`: the shared "run `wt.load.LoadFromFile` only if the staged file changed" step every other role reuses. |
+| `acme.windchill.icons` | Type icons and other images: mirrors folders from the configuration repo into `codebase\netmarkets\images` with `win_copy`. No LoadFromFile. |
 | `acme.windchill.types` | Soft types, attributes, layouts and global enumerations: takes one folder per type holding the up-to-four load files of a Type and Attribute Management export, loads them in dependency order through the loader. Site level. |
 | `acme.windchill.oir` | Object initialization rules: renders each rule into a load file (or copies a complete one) and hands it to the loader. Depends on `types`. |
 
-Order is enforced by role dependencies: `oir` -> `types` -> `common`. Running
-`oir` alone still imports the types first; nothing that refers to a soft type
-runs before the type exists.
+Order is enforced by role dependencies: `oir` -> `types` -> `icons` -> `common`.
+Running `oir` alone still copies the icons and imports the types first:
+nothing runs before the things it refers to exist.
 
 Each role has its own README with the variable table.
 
@@ -31,7 +32,7 @@ Each role has its own README with the variable table.
 # requirements.yml in the configuration repo
 collections:
   - name: acme.windchill
-    version: "1.2.0"
+    version: "1.3.0"
 ```
 
 ```yaml
@@ -43,7 +44,7 @@ collections:
 ```
 
 Variables the roles expect (`windchill_home`, `windchill_admin_user`,
-`windchill_admin_password`, `windchill_staging_dir`, `windchill_types_files`,
+`windchill_admin_password`, `windchill_staging_dir`, `windchill_icons`, `windchill_types_files`,
 `windchill_oir_rules`, ...) are documented in each role's `defaults/main.yml`.
 
 ## Developing
@@ -54,6 +55,7 @@ Run the checks CI runs:
 ansible-lint --profile production
 ansible-playbook tests/selftest.yml                       # loader logic, no Windows host needed
 ansible-playbook tests/types_order.yml                    # types file ordering, likewise
+ansible-playbook tests/icons_target.yml                   # icons target folder, likewise
 ansible-galaxy collection build --output-path dist
 export ANSIBLE_COLLECTIONS_PATH=/tmp/collections     # an empty path, so dependencies are installed too
 ansible-galaxy collection install dist/*.tar.gz
@@ -94,7 +96,7 @@ Artifactory variables, lint and test still run using public Galaxy.
 
 - `galaxy.yml`: `namespace`
 - `roles/oir/meta/main.yml`, `roles/oir/tasks/load_rule.yml`, `roles/types/meta/main.yml`,
-  `roles/types/tasks/load_item.yml`: `acme.windchill.common` / `acme.windchill.types`
+  `roles/types/tasks/load_item.yml`, `roles/icons/meta/main.yml`: the `acme.windchill.*` names
 - `tests/syntax.yml` and `.gitlab-ci.yml` (the tarball name in `publish`)
 - in the configuration repo: `requirements-windchill.yml`, `docker-compose.yml`
   (the mount path), `playbooks/*.yml`, `playbooks/lab_render_oir.yml`
@@ -121,5 +123,9 @@ server, confirm once:
 - Every variable starts with `windchill_`; role-specific ones with `windchill_<role>_`.
 - `defaults/main.yml` documents every variable with a comment and never holds a real value.
 - Commands set `changed_when`; anything carrying a password sets `no_log: true`.
+- Backslashes and newlines are written on the YAML side (`"{{ a }}\\{{ b }}"`,
+  `"{{ out }}\n{{ err }}"`), never inside Jinja string literals: in expressions
+  embedded in YAML they are taken verbatim (`"\\"` is two characters).
 - A role that loads files renders to `<windchill_staging_dir>\staging\` and
-  includes `acme.windchill.common` with `tasks_from: load_file`.
+  includes `acme.windchill.common` with `tasks_from: load_file`. A role that
+  only places files uses `win_copy` / `win_template`, which are idempotent by themselves.
