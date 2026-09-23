@@ -1,0 +1,38 @@
+---
+# Decides what xconfmanager has to do, comparing the wanted properties with
+# windchill_properties_current. Control-node logic only, so
+# tests/properties_plan.yml can check it with a mocked current state.
+#
+# Result: windchill_properties_plan, a list of normalised entries
+#   {name, value (string), target, state} that need a change.
+
+- name: Start with an empty plan
+  ansible.builtin.set_fact:
+    windchill_properties_plan: []
+
+# One entry at a time, normalised: value as the exact string Windchill
+# should see (YAML booleans become true/false, numbers become digits), the
+# default target filled in, state defaulted to present.
+- name: Add each property that differs from its current override
+  ansible.builtin.set_fact:
+    windchill_properties_plan: "{{ windchill_properties_plan + [windchill_properties_wanted] }}"
+  vars:
+    windchill_properties_wanted:
+      name: "{{ item.name }}"
+      value: "{{ (item.value | lower) if (item.value is defined and item.value is boolean) else (item.value | default('') | string) }}"
+      target: "{{ item.target | default(windchill_properties_default_target) }}"
+      state: "{{ item.state | default('present') }}"
+  loop: "{{ windchill_properties }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: >-
+    (windchill_properties_wanted.state == 'present'
+     and (windchill_properties_current[item.name] | default(None)) != windchill_properties_wanted.value)
+    or (windchill_properties_wanted.state == 'absent'
+        and item.name in windchill_properties_current)
+
+- name: Show the plan
+  ansible.builtin.debug:
+    msg: >-
+      {{ (windchill_properties_plan | length) }} of {{ windchill_properties | length }} properties differ:
+      {{ windchill_properties_plan | map(attribute='name') | list }}

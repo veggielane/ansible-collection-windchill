@@ -52,6 +52,7 @@ selftest:
     - ansible-playbook tests/selftest.yml
     - ansible-playbook tests/types_order.yml
     - ansible-playbook tests/icons_target.yml
+    - ansible-playbook tests/properties_plan.yml
 
 build:
   stage: test

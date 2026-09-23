@@ -1,0 +1,18 @@
+---
+# Property changes only take effect after Windchill restarts. Both handlers
+# listen to the same event; which one does something depends on whether the
+# configuration repo has told us how to restart (windchill_restart_command).
+
+- name: Restart Windchill
+  ansible.windows.win_shell: "{{ windchill_restart_command }}"
+  listen: windchill properties changed
+  when: windchill_restart_command | length > 0
+  changed_when: true
+
+- name: Report that a restart is needed
+  ansible.builtin.debug:
+    msg: >-
+      Properties changed. Restart Windchill for them to take effect
+      (set windchill_restart_command to have this role do it).
+  listen: windchill properties changed
+  when: windchill_restart_command | length == 0

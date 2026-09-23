@@ -1,0 +1,46 @@
+---
+# Entry point of the role. Ansible runs this once per host, after
+# acme.windchill.common (meta/main.yml).
+#
+#   normalise  ->  read current overrides from site.xconf  ->  plan the
+#   differences  ->  apply with xconfmanager  ->  restart (handler, flushed
+#   here so later roles see the new properties)
+
+- name: Check that windchill_properties is a list of well-formed entries
+  ansible.builtin.assert:
+    that:
+      - windchill_properties | type_debug == 'list'
+      - windchill_properties | rejectattr('name', 'defined') | list | length == 0
+      - >-
+        windchill_properties | selectattr('state', 'defined') | rejectattr('state', 'in', ['present', 'absent'])
+        | list | length == 0
+      - >-
+        windchill_properties | rejectattr('state', 'defined') | rejectattr('value', 'defined')
+        | list | length == 0
+    fail_msg: >-
+      Every entry in windchill_properties needs a 'name' and a 'value'
+      (or state: absent). See roles/properties/README.md.
+    quiet: true
+
+- name: Say so when there is nothing to manage
+  ansible.builtin.debug:
+    msg: "windchill_properties is empty - list properties in inventory/group_vars/windchill/properties.yml"
+  when: windchill_properties | length == 0
+
+- name: Read the current overrides from site.xconf
+  ansible.builtin.include_tasks: read_current.yml
+  when: windchill_properties | length > 0
+
+- name: Work out which properties differ
+  ansible.builtin.include_tasks: plan.yml
+  when: windchill_properties | length > 0
+
+- name: Apply the differences with xconfmanager
+  ansible.builtin.include_tasks: apply.yml
+  when: windchill_properties | length > 0
+
+# Handlers normally run at the very end of the play. Properties only take
+# effect after a restart, and roles that run after this one may rely on
+# them, so the restart handler is triggered right here instead.
+- name: Restart now if anything changed, before the next role runs
+  ansible.builtin.meta: flush_handlers

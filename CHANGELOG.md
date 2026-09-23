@@ -4,6 +4,15 @@ All notable changes to the `acme.windchill` collection. Versions follow
 semantic versioning: patch = fix, minor = new role or new optional variable,
 major = a variable or role renamed or removed.
 
+## 1.4.0 (2026-09-23)
+
+- New role `properties`: manages Windchill properties as `site.xconf`
+  overrides through `xconfmanager` (read current override, set only what
+  differs, `--reset` for `state: absent`, propagate once), then restarts
+  Windchill via `windchill_restart_command` or reports that a restart is
+  needed. Handlers are flushed at the end of the role so later roles see
+  the new values. `tests/properties_plan.yml` checks the diff logic.
+
 ## 1.3.0 (2026-09-23)
 
 - New role `icons`: mirrors folders of images from the configuration repo

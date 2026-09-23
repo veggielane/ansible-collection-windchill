@@ -10,7 +10,7 @@ name: windchill
 
 # Bump on every release (semantic versioning). CI refuses to publish a tag
 # that does not match this value.
-version: 1.3.0
+version: 1.4.0
 
 readme: README.md
 authors:

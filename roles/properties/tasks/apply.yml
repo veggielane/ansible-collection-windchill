@@ -1,0 +1,73 @@
+---
+# Runs xconfmanager for the planned changes:
+#   one call per target file for the properties to set (several -s at once),
+#   one --reset per override to drop,
+#   then a single propagation (-p) that rewrites the property files.
+# Every call is skipped in --check mode, so the plan is a safe preview.
+
+- name: Report when nothing needs changing
+  ansible.builtin.debug:
+    msg: "All {{ windchill_properties | length }} properties already have the wanted override."
+  when: windchill_properties_plan | length == 0
+
+# The command line is assembled in a task variable (evaluated per loop
+# item) and handed to win_shell as one expression: a free-form command that
+# itself contains Jinja blocks and quotes confuses Ansible's argument
+# splitter. PowerShell single quotes keep $ and backslashes literal; a '
+# inside a value is doubled, which is how single quotes are escaped there.
+- name: Set the changed properties of {{ item }}
+  ansible.windows.win_shell: "{{ windchill_properties_set_cmd }}"
+  args:
+    chdir: "{{ windchill_home }}"
+  vars:
+    windchill_properties_set_cmd: >-
+      & '{{ windchill_xconfmanager }}'
+      {% for p in windchill_properties_plan | selectattr('state', 'eq', 'present') | selectattr('target', 'eq', item) %}
+      -s '{{ p.name }}={{ p.value | replace("'", "''") }}'
+      {% endfor %}
+      -t '{{ item }}'
+  loop: "{{ windchill_properties_plan | selectattr('state', 'eq', 'present') | map(attribute='target') | unique | list }}"
+  register: windchill_properties_set
+  changed_when: true
+  failed_when: >-
+    windchill_properties_set.rc != 0
+    or ((windchill_properties_set.stdout | default('')) ~ (windchill_properties_set.stderr | default('')))
+       is regex(windchill_properties_failure_patterns | join('|'), ignorecase=True)
+
+- name: Drop the override of {{ item.name }}
+  ansible.windows.win_shell: "{{ windchill_properties_reset_cmd }}"
+  args:
+    chdir: "{{ windchill_home }}"
+  vars:
+    windchill_properties_reset_cmd: "& '{{ windchill_xconfmanager }}' --reset '{{ item.name }}'"
+  loop: "{{ windchill_properties_plan | selectattr('state', 'eq', 'absent') | list }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: windchill_properties_reset
+  changed_when: true
+  failed_when: >-
+    windchill_properties_reset.rc != 0
+    or ((windchill_properties_reset.stdout | default('')) ~ (windchill_properties_reset.stderr | default('')))
+       is regex(windchill_properties_failure_patterns | join('|'), ignorecase=True)
+
+- name: Propagate site.xconf into the property files
+  ansible.windows.win_shell: "{{ windchill_properties_propagate_cmd }}"
+  args:
+    chdir: "{{ windchill_home }}"
+  vars:
+    windchill_properties_propagate_cmd: "& '{{ windchill_xconfmanager }}' -p"
+  when: windchill_properties_plan | length > 0
+  register: windchill_properties_propagate
+  changed_when: true
+  failed_when: >-
+    windchill_properties_propagate.rc != 0
+    or ((windchill_properties_propagate.stdout | default('')) ~ (windchill_properties_propagate.stderr | default('')))
+       is regex(windchill_properties_failure_patterns | join('|'), ignorecase=True)
+  notify: windchill properties changed
+
+- name: Show what xconfmanager said
+  ansible.builtin.debug:
+    msg: >-
+      {{ ((windchill_properties_set.results | default([])) + (windchill_properties_reset.results | default([])) + [windchill_properties_propagate])
+         | map(attribute='stdout_lines', default=[]) | flatten }}
+  when: windchill_properties_plan | length > 0 and windchill_properties_propagate is not skipped

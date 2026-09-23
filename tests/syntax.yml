@@ -7,6 +7,7 @@
   hosts: localhost
   gather_facts: false
   roles:
+    - acme.windchill.properties
     - acme.windchill.icons
     - acme.windchill.types
     - acme.windchill.oir

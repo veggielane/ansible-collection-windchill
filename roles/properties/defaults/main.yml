@@ -1,0 +1,40 @@
+---
+# Defaults for the properties role: Windchill properties (wt.properties,
+# db.properties, ...) managed through xconfmanager and site.xconf.
+# Override in the configuration repo (inventory/group_vars/windchill/properties.yml).
+
+# The properties to enforce. Each becomes an override in site.xconf, set
+# with `xconfmanager -s name=value -t <target> -p` only when the current
+# override differs (or is missing). Values are strings; write booleans and
+# numbers quoted ('true', '30') to keep them exactly as Windchill expects.
+windchill_properties: []
+#  - name: wt.mail.from
+#    value: windchill@example.com
+#    target: codebase/wt.properties        # optional; default windchill_properties_default_target
+#  - name: wt.method.verboseClient
+#    value: 'false'
+#  - name: some.obsolete.property
+#    state: absent                          # remove the override (xconfmanager --remove)
+
+# Property file most properties live in (relative to windchill_home, forward
+# slashes, as xconfmanager expects).
+windchill_properties_default_target: codebase/wt.properties
+
+# The utility. Windows installs it next to windchill.exe.
+windchill_xconfmanager: "{{ windchill_home }}\\bin\\xconfmanager.exe"
+
+# Where the overrides are recorded.
+windchill_site_xconf: "{{ windchill_home }}\\site.xconf"
+
+# Property changes only take effect after the method servers restart.
+# Empty = the role only reports that a restart is needed. Set it to whatever
+# restarts YOUR Windchill, run as the Ansible user on the server, e.g.
+#   windchill_restart_command: 'Restart-Service -Name Windchill'
+#   windchill_restart_command: '& "D:\ptc\Windchill\bin\windchill.exe" stop; & "D:\ptc\Windchill\bin\windchill.exe" start'
+windchill_restart_command: ''
+
+# Case-insensitive regular expressions that mean xconfmanager failed even
+# with exit code 0.
+windchill_properties_failure_patterns:
+  - 'exception'
+  - '\berror\b'

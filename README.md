@@ -16,6 +16,7 @@ server, or an actual Windchill rule. All of that arrives as variables.
 | Role | Purpose |
 |---|---|
 | `acme.windchill.common` | Pre-flight checks, working folders, and `tasks/load_file.yml`: the shared "run `wt.load.LoadFromFile` only if the staged file changed" step every other role reuses. |
+| `acme.windchill.properties` | Windchill properties as `site.xconf` overrides via `xconfmanager`: reads the current override, sets only what differs, propagates, restarts (or says a restart is needed). Independent of the others; runs first in `site.yml`. |
 | `acme.windchill.icons` | Type icons and other images: mirrors folders from the configuration repo into `codebase\netmarkets\images` with `win_copy`. No LoadFromFile. |
 | `acme.windchill.types` | Soft types, attributes, layouts and global enumerations: takes one folder per type holding the up-to-four load files of a Type and Attribute Management export, loads them in dependency order through the loader. Site level. |
 | `acme.windchill.oir` | Object initialization rules: renders each rule into a load file (or copies a complete one) and hands it to the loader. Depends on `types`. |
@@ -32,7 +33,7 @@ Each role has its own README with the variable table.
 # requirements.yml in the configuration repo
 collections:
   - name: acme.windchill
-    version: "1.3.0"
+    version: "1.4.0"
 ```
 
 ```yaml
@@ -56,6 +57,7 @@ ansible-lint --profile production
 ansible-playbook tests/selftest.yml                       # loader logic, no Windows host needed
 ansible-playbook tests/types_order.yml                    # types file ordering, likewise
 ansible-playbook tests/icons_target.yml                   # icons target folder, likewise
+ansible-playbook tests/properties_plan.yml                # properties diff logic, likewise
 ansible-galaxy collection build --output-path dist
 export ANSIBLE_COLLECTIONS_PATH=/tmp/collections     # an empty path, so dependencies are installed too
 ansible-galaxy collection install dist/*.tar.gz

@@ -1,0 +1,37 @@
+---
+# Reads the current override of every wanted property from site.xconf into
+# windchill_properties_current (a dict name -> value; missing = no override).
+#
+# site.xconf is XML:  <Property name="wt.x" value="..." targetFile="..."/>
+# It starts with a DOCTYPE that points at xconf.dtd, so it is parsed with
+# DTD processing switched off. PowerShell prints the wanted entries as JSON.
+
+- name: Read the wanted properties' overrides from site.xconf
+  ansible.windows.win_shell: |
+    # Names arrive as one comma-separated string: in Windows PowerShell 5.1,
+    # ConvertFrom-Json hands a JSON array back as a single object, which
+    # -contains cannot search. (No apostrophes in these comments: the whole
+    # script is one free-form argument and its quotes must balance.)
+    $names = [string[]]'{{ windchill_properties | map(attribute="name") | join(",") }}'.Split(',')
+    $path = '{{ windchill_site_xconf }}'
+    $current = @{}
+    if (Test-Path -LiteralPath $path) {
+        $settings = New-Object System.Xml.XmlReaderSettings
+        $settings.DtdProcessing = [System.Xml.DtdProcessing]::Ignore
+        $reader = [System.Xml.XmlReader]::Create($path, $settings)
+        $xconf = New-Object System.Xml.XmlDocument
+        $xconf.Load($reader)
+        $reader.Close()
+        foreach ($p in $xconf.SelectNodes('//Property')) {
+            $n = $p.GetAttribute('name')
+            if ($names -contains $n) { $current[$n] = $p.GetAttribute('value') }
+        }
+    }
+    if ($current.Count -eq 0) { '{}' } else { $current | ConvertTo-Json -Compress }
+  register: windchill_properties_read
+  changed_when: false
+  check_mode: false          # read-only, so it may run in --check too
+
+- name: Keep the current overrides as a dictionary
+  ansible.builtin.set_fact:
+    windchill_properties_current: "{{ windchill_properties_read.stdout | trim | from_json }}"

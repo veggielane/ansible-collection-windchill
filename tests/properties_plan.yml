@@ -1,0 +1,48 @@
+---
+# Checks the diff logic of the properties role on the control node, with a
+# mocked current state (what site.xconf would have said).
+#   ansible-playbook tests/properties_plan.yml
+- name: Properties role - plan
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    windchill_properties_default_target: codebase/wt.properties
+    windchill_properties_current:
+      wt.mail.from: old@example.com          # differs -> set
+      wt.method.verboseClient: 'false'       # same -> skip
+      wt.obsolete: whatever                  # present but wanted absent -> remove
+      wt.number: '30'                        # same after normalising the YAML number
+    windchill_properties:
+      - name: wt.mail.from
+        value: new@example.com
+      - name: wt.method.verboseClient
+        value: false                          # YAML boolean -> "false"
+      - name: wt.obsolete
+        state: absent
+      - name: wt.number
+        value: 30                             # YAML number -> "30"
+      - name: wt.brand.new
+        value: hello
+        target: codebase/db/db.properties     # no override yet -> set, custom target
+      - name: wt.never.there
+        state: absent                         # no override -> nothing to remove
+
+  tasks:
+    - name: Run the role's plan logic
+      ansible.builtin.include_tasks: ../roles/properties/tasks/plan.yml
+
+    - name: Exactly the differing ones are planned, normalised
+      ansible.builtin.assert:
+        that:
+          - windchill_properties_plan | map(attribute='name') | list == ['wt.mail.from', 'wt.obsolete', 'wt.brand.new']
+          - (windchill_properties_plan | selectattr('name', 'eq', 'wt.mail.from') | first).value == 'new@example.com'
+          - (windchill_properties_plan | selectattr('name', 'eq', 'wt.mail.from') | first).target == 'codebase/wt.properties'
+          - (windchill_properties_plan | selectattr('name', 'eq', 'wt.obsolete') | first).state == 'absent'
+          - (windchill_properties_plan | selectattr('name', 'eq', 'wt.brand.new') | first).target == 'codebase/db/db.properties'
+        quiet: true
+
+    - name: All good
+      ansible.builtin.debug:
+        msg: "properties plan OK"
